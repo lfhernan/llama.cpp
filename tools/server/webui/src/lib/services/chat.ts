@@ -1,6 +1,27 @@
 import { getJsonHeaders } from '$lib/utils';
 import { AttachmentType } from '$lib/enums';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Smart proxy routing config
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Set this to false if you want to go back to talking directly to llama-server.
+const USE_SMART_PROXY = true;
+
+// Base URL for your Python smart proxy (Ministral + Tavily).
+// You can override this at runtime in the browser with:
+//   localStorage.setItem('smartProxyUrl', 'http://127.0.0.1:8081');
+const SMART_PROXY_URL: string = (() => {
+	if (typeof window !== 'undefined') {
+		const stored = window.localStorage.getItem('smartProxyUrl');
+		if (stored && stored.trim()) return stored.trim();
+		return 'http://127.0.0.1:8081';
+	}
+
+	// Server-side / build-time default
+	return process.env.SMART_PROXY_URL ?? 'http://127.0.0.1:8081';
+})();
+
 /**
  * ChatService - Low-level API communication layer for Chat Completions
  *
@@ -113,16 +134,18 @@ export class ChatService {
 			});
 
 		const processedMessages = ChatService.injectSystemMessage(normalizedMessages, systemMessage);
+		// When using the smart proxy, we can now stream end-to-end.
+		const effectiveStream = stream;
 
 		const requestBody: ApiChatCompletionRequest = {
 			messages: processedMessages.map((msg: ApiChatMessageData) => ({
 				role: msg.role,
 				content: msg.content
 			})),
-			stream
+			stream: effectiveStream
 		};
 
-		// Include model in request if provided (required in ROUTER mode)
+		// Include model in request if provided (required in ROUTER mode or for proxies)
 		if (options.model) {
 			requestBody.model = options.model;
 		}
@@ -171,8 +194,11 @@ export class ChatService {
 			}
 		}
 
+		// Choose endpoint: smart proxy or direct llama-server
+		const endpoint = USE_SMART_PROXY ? `${SMART_PROXY_URL}/v1/chat/completions`: `./v1/chat/completions`;
+
 		try {
-			const response = await fetch(`./v1/chat/completions`, {
+			const response = await fetch(endpoint, {
 				method: 'POST',
 				headers: getJsonHeaders(),
 				body: JSON.stringify(requestBody),
@@ -187,7 +213,7 @@ export class ChatService {
 				throw error;
 			}
 
-			if (stream) {
+			if (effectiveStream) {
 				await ChatService.handleStreamResponse(
 					response,
 					onChunk,
