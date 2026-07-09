@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Switch } from '$lib/components/ui/switch';
 	import * as Tooltip from '$lib/components/ui/tooltip';
@@ -10,6 +11,7 @@
 	import type { MCPServerDisplayInfo, HealthCheckState, MCPServerSettingsEntry } from '$lib/types';
 	import { onMount } from 'svelte';
 	import { MCP_CARD_VISIBLE_TOOL_LIMIT, NEWLINE } from '$lib/constants';
+	import { LogIn } from 'lucide-svelte';
 
 	interface Props {
 		server: MCPServerDisplayInfo & { description?: string };
@@ -33,8 +35,12 @@
 	let isIdle = $derived(healthState.status === HealthCheckStatus.IDLE);
 	let isHealthChecking = $derived(healthState.status === HealthCheckStatus.CONNECTING);
 	let isError = $derived(healthState.status === HealthCheckStatus.ERROR);
+	let isAuthRequired = $derived(healthState.status === HealthCheckStatus.AUTH_REQUIRED);
 	let errorMessage = $derived(
 		healthState.status === HealthCheckStatus.ERROR ? healthState.message : undefined
+	);
+	let authMessage = $derived(
+		healthState.status === HealthCheckStatus.AUTH_REQUIRED ? healthState.message : undefined
 	);
 	let serverInfo = $derived(
 		healthState.status === HealthCheckStatus.SUCCESS ? healthState.serverInfo : undefined
@@ -64,6 +70,10 @@
 	function handleToggle(checked: boolean) {
 		onToggle?.(checked);
 	}
+
+	function handleAuthorize() {
+		mcpStore.authorizeServer(server.id);
+	}
 </script>
 
 <Card.Root class="!gap-3 bg-muted/30 p-4">
@@ -86,11 +96,19 @@
 			{/if}
 		</div>
 
-		<Switch checked={enabled} disabled={isError || showSkeleton} onCheckedChange={handleToggle} />
+		<Switch checked={enabled} disabled={isError || isAuthRequired || showSkeleton} onCheckedChange={handleToggle} />
 	</div>
 
 	{#if isError && errorMessage}
 		<p class="text-xs text-destructive">{errorMessage}</p>
+	{:else if isAuthRequired && authMessage}
+		<p class="text-xs text-warning">{authMessage}</p>
+		<div class="flex justify-center">
+			<Button variant="outline" size="sm" onclick={handleAuthorize}>
+				<LogIn class="mr-1 h-3.5 w-3.5" />
+				Authorize
+			</Button>
+		</div>
 	{/if}
 
 	{#if showSkeleton}

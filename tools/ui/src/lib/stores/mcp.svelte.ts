@@ -1424,11 +1424,94 @@ class MCPStore {
 				});
 			}
 
-			this.updateHealthCheck(server.id, {
+			const isAuthError =
+				message.includes('401') ||
+				message.toLowerCase().includes('authentication required') ||
+				message.toLowerCase().includes('unauthorized');
+
+			if (isAuthError) {
+				this.updateHealthCheck(server.id, {
+					status: HealthCheckStatus.AUTH_REQUIRED,
+					message: `Server requires authentication. Click "Authorize" to begin OAuth flow.`,
+					logs
+				});
+			} else {
+				this.updateHealthCheck(server.id, {
+					status: HealthCheckStatus.ERROR,
+					message,
+					phase: currentPhase,
+					logs
+				});
+			}
+		}
+	}
+
+	/**
+	 * Initiate OAuth authorization for an MCP server that requires authentication.
+	 * Opens the authorization URL in a new window and polls for completion.
+	 */
+	async authorizeServer(serverId: string): Promise<void> {
+		try {
+			const response = await fetch(`./mcp/servers/${encodeURIComponent(serverId)}/authorize`, {
+				method: 'POST'
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(errorData?.error || `Authorization failed with status ${response.status}`);
+			}
+
+			const data = await response.json();
+			const authUrl = data.auth_url;
+
+			if (!authUrl) {
+				throw new Error('No authorization URL returned from server');
+			}
+
+			// Open the authorization URL in a new window
+			const authWindow = window.open(authUrl, '_blank', 'width=600,height=700');
+			if (!authWindow) {
+				throw new Error('Popup blocked. Please allow popups for this site and try again.');
+			}
+
+			// Update health check to show authorizing state
+			this.updateHealthCheck(serverId, {
+				status: HealthCheckStatus.CONNECTING,
+				message: 'Authorization in progress...',
+				logs: []
+			});
+
+			// Poll for completion by running health checks
+			const pollInterval = setInterval(async () => {
+				const server = this.getServerById(serverId);
+				if (server) {
+					await this.runHealthCheck({
+						id: server.id,
+						enabled: server.enabled,
+						url: server.url,
+						requestTimeoutSeconds: server.requestTimeoutSeconds,
+						headers: server.headers,
+						useProxy: server.useProxy
+					});
+					const state = this.getHealthCheckState(serverId);
+					if (
+						state.status === HealthCheckStatus.SUCCESS ||
+						state.status === HealthCheckStatus.ERROR
+					) {
+						clearInterval(pollInterval);
+					}
+				}
+			}, 3000);
+
+			// Stop polling after 5 minutes
+			setTimeout(() => clearInterval(pollInterval), 300000);
+		} catch (error) {
+			console.error('[MCPStore] Authorization failed:', error);
+			const message = error instanceof Error ? error.message : 'Authorization failed';
+			this.updateHealthCheck(serverId, {
 				status: HealthCheckStatus.ERROR,
-				message,
-				phase: currentPhase,
-				logs
+				message: `Authorization error: ${message}`,
+				logs: []
 			});
 		}
 	}

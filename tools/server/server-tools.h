@@ -19,6 +19,7 @@ struct server_tools {
     std::vector<std::unique_ptr<server_tool>> tools;
 
     void setup(const std::vector<std::string> & enabled_tools);
+    void extend_tools(std::vector<std::unique_ptr<server_tool>> && extra_tools);
     json invoke(const std::string & name, const json & params);
 
     server_http_context::handler_t handle_get;

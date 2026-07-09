@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import * as Card from '$lib/components/ui/card';
+	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import type { MCPServerSettingsEntry, HealthCheckState } from '$lib/types';
 	import { HealthCheckStatus } from '$lib/enums';
 	import { mcpStore } from '$lib/stores/mcp.svelte';
+	import { LogIn } from 'lucide-svelte';
 	import {
 		McpServerCardActions,
 		McpServerCardDeleteDialog,
@@ -32,16 +34,21 @@
 	let isHealthChecking = $derived(healthState.status === HealthCheckStatus.CONNECTING);
 	let isConnected = $derived(healthState.status === HealthCheckStatus.SUCCESS);
 	let isError = $derived(healthState.status === HealthCheckStatus.ERROR);
+	let isAuthRequired = $derived(healthState.status === HealthCheckStatus.AUTH_REQUIRED);
 	let showSkeleton = $derived(isIdle || isHealthChecking);
 	let errorMessage = $derived(
 		healthState.status === HealthCheckStatus.ERROR ? healthState.message : undefined
+	);
+	let authMessage = $derived(
+		healthState.status === HealthCheckStatus.AUTH_REQUIRED ? healthState.message : undefined
 	);
 	let tools = $derived(healthState.status === HealthCheckStatus.SUCCESS ? healthState.tools : []);
 
 	let connectionLogs = $derived(
 		healthState.status === HealthCheckStatus.CONNECTING ||
 			healthState.status === HealthCheckStatus.SUCCESS ||
-			healthState.status === HealthCheckStatus.ERROR
+			healthState.status === HealthCheckStatus.ERROR ||
+			healthState.status === HealthCheckStatus.AUTH_REQUIRED
 			? healthState.logs
 			: []
 	);
@@ -62,6 +69,10 @@
 
 	function handleHealthCheck() {
 		mcpStore.runHealthCheck(server);
+	}
+
+	function handleAuthorize() {
+		mcpStore.authorizeServer(server.id);
 	}
 
 	async function startEditing() {
@@ -111,7 +122,7 @@
 			{displayName}
 			{faviconUrl}
 			enabled={enabled ?? server.enabled}
-			disabled={isError}
+			disabled={isError || isAuthRequired}
 			{onToggle}
 			{serverInfo}
 			{capabilities}
@@ -120,6 +131,14 @@
 
 		{#if isError && errorMessage}
 			<p class="text-xs text-destructive">{errorMessage}</p>
+		{:else if isAuthRequired && authMessage}
+			<p class="text-xs text-warning">{authMessage}</p>
+			<div class="flex justify-center">
+				<Button variant="outline" size="sm" onclick={handleAuthorize}>
+					<LogIn class="mr-1 h-3.5 w-3.5" />
+					Authorize
+				</Button>
+			</div>
 		{/if}
 
 		{#if isConnected && serverInfo?.description}

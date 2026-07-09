@@ -156,6 +156,11 @@ export type HealthCheckState =
 			logs: MCPConnectionLog[];
 	  }
 	| {
+			status: HealthCheckStatus.AUTH_REQUIRED;
+			message: string;
+			logs: MCPConnectionLog[];
+	  }
+	| {
 			status: HealthCheckStatus.SUCCESS;
 			tools: MCPToolInfo[];
 			serverInfo?: MCPServerInfo;

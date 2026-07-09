@@ -21,6 +21,10 @@ add_library(${TARGET} STATIC
     server-tools.h
     server-schema.cpp
     server-schema.h
+    server-mcp.cpp
+    server-mcp.h
+    server-mcp-oauth.cpp
+    server-mcp-oauth.h
 )
 
 if (BUILD_SHARED_LIBS)

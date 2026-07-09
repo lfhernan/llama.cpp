@@ -38,7 +38,8 @@ export enum HealthCheckStatus {
 	IDLE = 'idle',
 	CONNECTING = 'connecting',
 	SUCCESS = 'success',
-	ERROR = 'error'
+	ERROR = 'error',
+	AUTH_REQUIRED = 'auth_required'
 }
 
 /**

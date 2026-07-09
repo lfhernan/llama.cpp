@@ -77,6 +77,7 @@
 						{#each filteredMcpServers as server (server.id)}
 							{@const healthState = mcpStore.getHealthCheckState(server.id)}
 							{@const hasError = healthState.status === HealthCheckStatus.ERROR}
+							{@const isAuthRequired = healthState.status === HealthCheckStatus.AUTH_REQUIRED}
 							{@const isEnabledForChat = isServerEnabledForChat(server.id)}
 							{@const displayName = getServerLabel(server)}
 							{@const faviconUrl = mcpStore.getServerFavicon(server.id)}
@@ -84,8 +85,8 @@
 							<button
 								type="button"
 								class="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-2 text-left transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-								onclick={() => !hasError && toggleServerForChat(server.id)}
-								disabled={hasError}
+								onclick={() => !(hasError || isAuthRequired) && toggleServerForChat(server.id)}
+								disabled={hasError || isAuthRequired}
 							>
 								<div class="flex min-w-0 flex-1 items-center gap-2">
 									<div class="min-w-0 flex-1">
@@ -105,12 +106,18 @@
 										>
 											Error
 										</span>
+									{:else if isAuthRequired}
+										<span
+											class="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-xs text-warning"
+										>
+											Auth Required
+										</span>
 									{/if}
 								</div>
 
 								<Switch
 									checked={isEnabledForChat}
-									disabled={hasError}
+									disabled={hasError || isAuthRequired}
 									onclick={(e) => e.stopPropagation()}
 									onCheckedChange={() => toggleServerForChat(server.id)}
 								/>

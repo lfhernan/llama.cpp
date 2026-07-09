@@ -160,6 +160,7 @@
 							{#each visibleMcpServers as server (server.id)}
 								{@const healthState = mcpStore.getHealthCheckState(server.id)}
 								{@const hasError = healthState.status === HealthCheckStatus.ERROR}
+								{@const isAuthRequired = healthState.status === HealthCheckStatus.AUTH_REQUIRED}
 								{@const displayName = mcpStore.getServerLabel(server)}
 								{@const faviconUrl = mcpStore.getServerFavicon(server.id)}
 								{@const isEnabled = conversationsStore.isMcpServerEnabledForChat(server.id)}
@@ -167,8 +168,8 @@
 								<button
 									type="button"
 									class={sheetItemRowClass}
-									onclick={() => !hasError && conversationsStore.toggleMcpServerForChat(server.id)}
-									disabled={hasError}
+									onclick={() => !(hasError || isAuthRequired) && conversationsStore.toggleMcpServerForChat(server.id)}
+									disabled={hasError || isAuthRequired}
 								>
 									<div class="flex min-w-0 flex-1 items-center gap-2">
 										{#if faviconUrl}
@@ -190,6 +191,12 @@
 											class="shrink-0 rounded bg-destructive/15 px-1.5 py-0.5 text-xs text-destructive"
 										>
 											Error
+										</span>
+									{:else if isAuthRequired}
+										<span
+											class="shrink-0 rounded bg-warning/15 px-1.5 py-0.5 text-xs text-warning"
+										>
+											Auth Required
 										</span>
 									{:else}
 										<Switch

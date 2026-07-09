@@ -745,6 +745,12 @@ static std::vector<std::unique_ptr<server_tool>> build_tools() {
     return tools;
 }
 
+void server_tools::extend_tools(std::vector<std::unique_ptr<server_tool>> && extra_tools) {
+    for (auto & t : extra_tools) {
+        tools.push_back(std::move(t));
+    }
+}
+
 void server_tools::setup(const std::vector<std::string> & enabled_tools) {
     if (!enabled_tools.empty()) {
         std::unordered_set<std::string> enabled_set(enabled_tools.begin(), enabled_tools.end());

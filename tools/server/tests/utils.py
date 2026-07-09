@@ -113,6 +113,8 @@ class ServerProcess:
     ui_mcp_proxy: bool = False
     backend_sampling: bool = False
     gcp_compat: bool = False
+    mcp_config_file: str | None = None
+    tools: str | None = None
 
     # session variables
     process: subprocess.Popen | None = None
@@ -260,6 +262,10 @@ class ServerProcess:
             server_args.append("--backend_sampling")
         if self.gcp_compat:
             env["AIP_MODE"] = "PREDICTION"
+        if self.mcp_config_file:
+            server_args.extend(["--mcp-config", self.mcp_config_file])
+        if self.tools:
+            server_args.extend(["--tools", self.tools])
 
         args = [str(arg) for arg in [server_path, *server_args]]
         print(f"tests: starting server with: {' '.join(args)}")

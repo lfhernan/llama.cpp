@@ -3056,6 +3056,34 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
         }
     ).set_examples({LLAMA_EXAMPLE_SERVER}).set_env("LLAMA_ARG_AGENT"));
     add_opt(common_arg(
+        {"--mcp-config"}, "PATH",
+        "JSON file with MCP server configurations (id, url, scopes, client_id)",
+        [](common_params & params, const std::string & value) {
+            params.mcp_config_path = value;
+        }
+    ).set_examples({LLAMA_EXAMPLE_SERVER}).set_env("LLAMA_ARG_MCP_CONFIG"));
+    add_opt(common_arg(
+        {"--mcp-server"}, "URL",
+        "add a remote MCP server by URL (repeatable; auto-assigned id)",
+        [](common_params & params, const std::string & value) {
+            params.mcp_server_urls.push_back(value);
+        }
+    ).set_examples({LLAMA_EXAMPLE_SERVER}).set_env("LLAMA_ARG_MCP_SERVER"));
+    add_opt(common_arg(
+        {"--mcp-token-store"}, "PATH",
+        "override the default MCP token cache location",
+        [](common_params & params, const std::string & value) {
+            params.mcp_token_store_path = value;
+        }
+    ).set_examples({LLAMA_EXAMPLE_SERVER}).set_env("LLAMA_ARG_MCP_TOKEN_STORE"));
+    add_opt(common_arg(
+        {"--no-mcp-oauth"},
+        "refuse interactive OAuth flow; fail if MCP server requires auth with no cached token",
+        [](common_params & params) {
+            params.mcp_oauth_interactive = false;
+        }
+    ).set_examples({LLAMA_EXAMPLE_SERVER}).set_env("LLAMA_ARG_NO_MCP_OAUTH"));
+    add_opt(common_arg(
         {"--ui", "--webui"},
         {"--no-ui", "--no-webui"},
         string_format("whether to enable the Web UI (default: %s)", params.ui ? "enabled" : "disabled"),

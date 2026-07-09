@@ -660,6 +660,12 @@ struct common_params {
     // enable built-in tools
     std::vector<std::string> server_tools;
 
+    // MCP client config
+    std::string mcp_config_path;
+    std::vector<std::string> mcp_server_urls;
+    std::string mcp_token_store_path;
+    bool mcp_oauth_interactive = true;
+
     // router server configs
     std::string models_dir    = "";     // directory containing models for the router server
     std::string models_preset = "";     // directory containing model presets for the router server

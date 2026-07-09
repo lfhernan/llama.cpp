@@ -4,6 +4,7 @@
 #include "server-cors-proxy.h"
 #include "server-stream.h"
 #include "server-tools.h"
+#include "server-mcp.h"
 
 #include "arg.h"
 #include "build-info.h"
@@ -15,6 +16,7 @@
 #include <atomic>
 #include <clocale>
 #include <exception>
+#include <fstream>
 #include <signal.h>
 #include <thread> // for std::thread::hardware_concurrency
 
@@ -333,6 +335,85 @@ int llama_server(common_params & params, int argc, char ** argv) {
     } else {
         ctx_http.get ("/tools",           ex_wrapper(res_403));
         ctx_http.post("/tools",           ex_wrapper(res_403));
+    }
+
+    // EXPERIMENTAL MCP client
+    server_mcp mcp;
+    try {
+        std::vector<mcp_server_config> mcp_configs;
+
+        if (!params.mcp_config_path.empty()) {
+            if (params.mcp_config_path.find(".json") != std::string::npos) {
+                std::ifstream cfg_file(params.mcp_config_path);
+                if (!cfg_file) {
+                    SRV_ERR("failed to open MCP config file: %s\n", params.mcp_config_path.c_str());
+                } else {
+                    json cfg_json = json::parse(cfg_file);
+                    if (cfg_json.contains("servers") && cfg_json["servers"].is_array()) {
+                        for (const auto & s : cfg_json["servers"]) {
+                            mcp_server_config sc;
+                            sc.id        = s.value("id", "default");
+                            sc.url       = s.value("url", "");
+                            sc.scopes    = s.value("scopes", std::vector<std::string>{});
+                            sc.client_id = s.value("client_id", std::string{});
+                            sc.client_secret = s.value("client_secret", std::string{});
+                            sc.disabled  = s.value("disabled", false);
+                            if (!sc.url.empty()) {
+                                mcp_configs.push_back(std::move(sc));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for (size_t i = 0; i < params.mcp_server_urls.size(); i++) {
+            mcp_server_config sc;
+            sc.id  = "mcp_" + std::to_string(i);
+            sc.url = params.mcp_server_urls[i];
+            mcp_configs.push_back(std::move(sc));
+        }
+
+        if (!mcp_configs.empty()) {
+#ifndef CPPHTTPLIB_OPENSSL_SUPPORT
+            for (const auto & c : mcp_configs) {
+                if (c.url.rfind("https://", 0) == 0) {
+                    SRV_ERR("MCP server URL '%s' requires HTTPS but llama.cpp was built without TLS support.\n",
+                        c.url.c_str());
+                    SRV_ERR("%s", "Rebuild with one of: -DLLAMA_OPENSSL=ON, -DLLAMA_BUILD_BORINGSSL=ON, -DLLAMA_BUILD_LIBRESSL=ON\n");
+                    return 1;
+                }
+            }
+#endif
+            std::string redirect_uri = string_format("%s://%s:%d",
+                !params.ssl_file_cert.empty() ? "https" : "http",
+                common_http_format_host(params.hostname).c_str(),
+                params.port);
+            std::string token_store_path = params.mcp_token_store_path;
+            if (token_store_path.empty()) {
+                token_store_path = fs_get_cache_directory() + "/mcp_tokens";
+            }
+            mcp.setup(mcp_configs, token_store_path, redirect_uri, params.mcp_oauth_interactive);
+
+            size_t total_mcp_tools = 0;
+            for (const auto & c : mcp.clients) {
+                total_mcp_tools += c->tools.size();
+            }
+
+            tools.extend_tools(mcp.collect_tools());
+            if (total_mcp_tools > 0) {
+                SRV_WRN("%s", "-----------------\n");
+                SRV_WRN("MCP client is enabled (%zu remote tools), do not expose server to untrusted environments\n", total_mcp_tools);
+                SRV_WRN("%s", "This feature is EXPERIMENTAL and may be changed in the future\n");
+                SRV_WRN("%s", "-----------------\n");
+            }
+
+            ctx_http.get ("/mcp/servers",            ex_wrapper(mcp.handle_get_servers));
+            ctx_http.post("/mcp/servers/:id/authorize", ex_wrapper(mcp.handle_authorize));
+            ctx_http.get ("/mcp/oauth/callback",     ex_wrapper(mcp.handle_oauth_callback));
+        }
+    } catch (const std::exception & e) {
+        SRV_ERR("MCP setup failed: %s\n", e.what());
     }
 
     //

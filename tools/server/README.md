@@ -1567,6 +1567,72 @@ The server exposes a REST API under `/tools` that allows the Web UI to call buil
 
 For further documentation about this endpoint, please refer to [server internal documentation](./README-dev.md)
 
+## MCP Client (EXPERIMENTAL)
+
+The server can connect to remote MCP (Model Context Protocol) servers over the Streamable HTTP transport, discover their tools, and merge them into the server's tool registry. MCP tools are callable via the same `/tools` endpoint as built-in tools, with names prefixed as `mcp:<server_id>:<tool_name>`.
+
+**This feature is EXPERIMENTAL. Do not expose the server to untrusted environments when MCP is enabled.**
+
+### Configuration
+
+Start the server with `--mcp-config` pointing to a JSON configuration file:
+
+```sh
+llama-server --hf-repo ggml-org/models --hf-file tinyllamas/stories260K.gguf --mcp-config mcp_servers.json
+```
+
+Example `mcp_servers.json`:
+
+```json
+{
+  "servers": [
+    {
+      "id": "my-tools",
+      "url": "https://mcp.example.com",
+      "scopes": ["tools:read"]
+    },
+    {
+      "id": "local-notes",
+      "url": "http://127.0.0.1:8765",
+      "scopes": []
+    }
+  ]
+}
+```
+
+For a single server, pass the URL directly:
+
+```sh
+llama-server ... --mcp-server http://127.0.0.1:8765
+```
+
+### CLI Options
+
+| Flag | Description |
+|------|-------------|
+| `--mcp-config PATH` | JSON file with MCP server configurations |
+| `--mcp-server URL` | Add a single remote MCP server by URL (repeatable) |
+| `--mcp-token-store PATH` | Override the default token cache location |
+| `--no-mcp-oauth` | Refuse interactive OAuth flow; fail if auth is required |
+
+### MCP Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/mcp/servers` | GET | Status of all configured MCP servers |
+| `/mcp/servers/:id/authorize` | POST | Start OAuth authorization for a server |
+| `/mcp/oauth/callback` | GET | OAuth loopback redirect target |
+
+### Tool Discovery
+
+MCP tools discovered from remote servers appear in `GET /tools` with `"type": "mcp"` and a `"server"` field. Tool names are namespaced as `mcp:<server_id>:<tool_name>` to avoid collisions.
+
+### OAuth 2.1 Authentication
+
+When an MCP server returns a `401` response, the server automatically initiates the OAuth 2.1 authorization flow with PKCE S256. The first authorization requires a human to approve in a browser. Subsequent requests use cached refresh tokens.
+
+For headless deployments, use `POST /mcp/servers/:id/authorize` to retrieve the authorization URL, then complete the flow from a machine with browser access (e.g., via SSH port forwarding).
+
 ## Using multiple models
 
 `llama-server` can be launched in a **router mode** that exposes an API for dynamically loading and unloading models. The main process (the "router") automatically forwards each request to the appropriate model instance.

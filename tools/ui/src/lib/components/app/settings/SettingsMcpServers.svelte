@@ -64,7 +64,9 @@
 				const state = mcpStore.getHealthCheckState(server.id);
 
 				return (
-					state.status === HealthCheckStatus.SUCCESS || state.status === HealthCheckStatus.ERROR
+					state.status === HealthCheckStatus.SUCCESS ||
+					state.status === HealthCheckStatus.ERROR ||
+					state.status === HealthCheckStatus.AUTH_REQUIRED
 				);
 			});
 
