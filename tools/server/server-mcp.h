@@ -28,8 +28,8 @@ struct mcp_tool : server_tool {
 
     mcp_tool(const std::string & sid, const std::string & tname, const json & schema, mcp_client * client);
 
-    json get_definition() override;
-    json invoke(json params) override;
+    json get_definition() const override;
+    json invoke(json params, stream * st = nullptr) const override;
 };
 
 enum mcp_client_state {

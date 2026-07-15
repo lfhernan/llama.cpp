@@ -12,7 +12,7 @@ mcp_tool::mcp_tool(const std::string & sid, const std::string & tname, const jso
     permission_write = true;
 }
 
-json mcp_tool::get_definition() {
+json mcp_tool::get_definition() const {
     json func_def = json::object();
     if (input_schema.contains("name")) {
         func_def["name"] = input_schema["name"];
@@ -31,7 +31,7 @@ json mcp_tool::get_definition() {
     };
 }
 
-json mcp_tool::invoke(json params) {
+json mcp_tool::invoke(json params, stream *) const {
     if (!client_ptr) {
         return {{"error", "MCP client not available"}};
     }
